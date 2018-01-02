@@ -1,59 +1,42 @@
 package cn.alexchao.dcnn_master;
 
+import android.content.Intent;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.view.View;
 import android.widget.TextView;
 
-import java.net.UnknownHostException;
-
-public class MainActivity extends AppCompatActivity {
-    private Master mMaster;
-
+public class MainActivity
+        extends AppCompatActivity
+        implements View.OnClickListener {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
-        preSettingOfWS();
-
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
         ((TextView) findViewById(R.id.master_ip)).setText(Util.getLocalIp(this));
 
-        startServer();
-
-        findViewById(R.id.test_btn).setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                mMaster.broadcast("test");
-            }
-        });
+        findViewById(R.id.start_btn).setOnClickListener(this);
+        findViewById(R.id.stop_btn).setOnClickListener(this);
     }
 
     @Override
-    protected void onDestroy() {
-        super.onDestroy();
-    }
-
-    private void preSettingOfWS() {
-        java.lang.System.setProperty("java.net.preferIPv6Addresses", "false");
-        java.lang.System.setProperty("java.net.preferIPv4Stack", "true");
-    }
-
-    private void startServer() {
-        Thread thread = new Thread() {
-            @Override
-            public void run() {
-                int port = 8888;
-                try {
-                    mMaster = new Master(port);
-                    mMaster.start();
-                } catch (UnknownHostException e) {
-                    e.printStackTrace();
-                }
-
+    public void onClick(View view) {
+        switch (view.getId()) {
+            case R.id.start_btn: {
+                startService(new Intent(this, WSServerService.class));
+                break;
             }
-        };
+            case R.id.stop_btn: {
+                stopService(new Intent(this, WSServerService.class));
+                break;
+            }
+        }
+    }
 
-        thread.start();
+    @Override
+    public void onDestroy() {
+        stopService(new Intent(this, WSServerService.class));
+        super.onDestroy();
     }
 }

@@ -15,9 +15,15 @@
         android:textSize="@dimen/noteSize"/>
 
     <Button
-        android:id="@+id/test_btn"
+        android:id="@+id/start_btn"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="broadcast" />
+        android:text="start" />
+
+    <Button
+        android:id="@+id/stop_btn"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Stop" />
 
 </LinearLayout>
