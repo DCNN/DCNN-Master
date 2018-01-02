@@ -31,12 +31,12 @@ public class WSServerService extends Service {
         Notification.Builder builder = new Notification.Builder(this.getApplicationContext());
         Intent notificationIntent = new Intent(this, MainActivity.class);
         builder.setContentIntent(PendingIntent.getActivity(this, 0, notificationIntent, 0))
-                .setContentTitle("WS Server")               // 设置下拉列表里的标题
-                .setSmallIcon(R.mipmap.ic_launcher)         // 设置状态栏内的小图标
-                .setContentText("WS Server is running")     // 设置上下文内容
-                .setWhen(System.currentTimeMillis());       // 设置该通知发生的时间
-        Notification notification = builder.build();        // 获取构建好的Notification
-        notification.defaults = Notification.DEFAULT_SOUND; // 设置为默认的声音
+                .setContentTitle("WS Server")                // 设置下拉列表里的标题
+                .setSmallIcon(R.mipmap.ic_launcher)          // 设置状态栏内的小图标
+                .setContentText("WS Server is running")      // 设置上下文内容
+                .setWhen(System.currentTimeMillis());        // 设置该通知发生的时间
+        Notification notification = builder.build();         // 获取构建好的Notification
+        notification.defaults = Notification.DEFAULT_SOUND;  // 设置为默认的声音
 
         startForeground(ID, notification);
         return super.onStartCommand(intent, flags, startId);

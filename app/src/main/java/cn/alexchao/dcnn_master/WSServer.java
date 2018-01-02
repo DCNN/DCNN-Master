@@ -49,14 +49,18 @@ public class WSServer extends WebSocketServer {
     @Override
     public void onMessage(WebSocket conn, String message) {
         String sourceAddr = conn.getRemoteSocketAddress().getAddress().getHostAddress();
+        Log.d(TAG, sourceAddr + " sent a message");
         // receiving JSON
         JSONObject jsonObject;
         try {
             jsonObject = new JSONObject(message);
             switch (jsonObject.getString("op")) {
                 case "sendModel":
-                    handleRecModel(conn, jsonObject.getJSONArray("data"));
+                    handleRecModel(conn, jsonObject.getJSONObject("data"));
                     break;
+//                case "sendInputTensor":
+//                    handleRecInputTensor(conn, jsonObject.getJSONArray("data"));
+//                    break;
                 default:
                     handleRecNoMatch(conn);
                     break;
@@ -82,17 +86,35 @@ public class WSServer extends WebSocketServer {
         Log.d("WSServer", "Server started!");
     }
 
-    private void handleRecModel(WebSocket conn, JSONArray tensor1D) throws JSONException {
-        // perform some operations
-        int len = tensor1D.length();
-        int result = 0;
-        for (int i = 0; i < len; ++i) {
-            result += tensor1D.getInt(i);
-        }
+    /**
+     * @param conn: WebSocket Connection
+     * @param model: JSON Object
+     * {
+     *   conv1BiasesInfo: [conv1Biases: JSONArray, size: JSONArray],
+     *   conv1WeightsInfo: [conv1Biases: JSONArray, size: JSONArray],
+     *   conv2BiasesInfo: [conv1Biases: JSONArray, size: JSONArray],
+     *   conv2WeightsInfo: [conv1Biases: JSONArray, size: JSONArray]
+     * }
+     * @throws JSONException: JSONException
+     */
+    private void handleRecModel(WebSocket conn, JSONObject model) throws JSONException {
+        double res = model.getJSONArray("conv1WeightsInfo").getJSONArray(1).getDouble(1);
 
         JSONObject sendJsonObject = new JSONObject();
         try {
-            sendJsonObject.put("data", result);
+            sendJsonObject.put("data", res);
+        } catch (JSONException e) {
+            e.printStackTrace();
+        }
+        conn.send(sendJsonObject.toString());
+    }
+
+    private void handleRecInputTensor(WebSocket conn, JSONArray tensor1D) {
+        int len = tensor1D.length();
+
+        JSONObject sendJsonObject = new JSONObject();
+        try {
+            sendJsonObject.put("data", len);
         } catch (JSONException e) {
             e.printStackTrace();
         }
