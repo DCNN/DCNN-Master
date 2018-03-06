@@ -53,10 +53,14 @@ public class WSServer extends WebSocketServer {
     // router
     private void route(WebSocket conn, String jsonStr) {
         String sourceIP = conn.getRemoteSocketAddress().getAddress().getHostAddress();
+        Log.d("WSServer", sourceIP);
         if (sourceIP.equals(MASTER_IP)) {
             // master - > workers
             try {
                 JSONObject jsonObject = new JSONObject(jsonStr);
+
+                Log.d("WSServer", "func: " + jsonObject.getString("func"));
+
                 // func === send2node
                 if (jsonObject.getString("func").equals("calConv")) {
                     JSONObject data = jsonObject.getJSONObject("data");
@@ -90,9 +94,11 @@ public class WSServer extends WebSocketServer {
 
     // handles
     private void handleSend2Node(String targetIP, String jsonStr) {
+        Log.d("WSServer", "handleSend2Node");
         WebSocket aConn = this.mWorkerList.get(targetIP);
         if (aConn != null) {
             aConn.send(jsonStr);
+            Log.d("WSServer", "JSON Send to " + targetIP);
         }
     }
 
@@ -101,6 +107,13 @@ public class WSServer extends WebSocketServer {
     @Override
     public void onOpen(WebSocket conn, ClientHandshake handshake) {
         String sourceAddr = conn.getRemoteSocketAddress().getAddress().getHostAddress();
+        JSONObject jsonObject = new JSONObject();
+        try {
+            jsonObject.put("func", "setIP");
+            jsonObject.put("data", sourceAddr);
+        } catch (JSONException e) {
+            e.printStackTrace();
+        }
         if (MASTER_IP.equals(sourceAddr)) {
             Log.d(TAG, "Welcome, Master");
             this.addMaster(conn);
@@ -108,6 +121,7 @@ public class WSServer extends WebSocketServer {
             Log.d(TAG, sourceAddr + " has connected to this server");
             this.addWorker(sourceAddr, conn);
         }
+        conn.send(jsonObject.toString());
     }
 
     // invoked when a connected client disconnect from the server
@@ -122,6 +136,7 @@ public class WSServer extends WebSocketServer {
     @Override
     public void onMessage(WebSocket conn, String message) {
         // forwarding JSON
+        Log.d("WSServer", "receive message");
         this.route(conn, message);
     }
 
