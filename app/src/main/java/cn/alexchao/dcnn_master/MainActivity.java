@@ -14,6 +14,8 @@ public class MainActivity
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
+        WSServer.MASTER_IP = Util.getLocalIp(this);
+
         ((TextView) findViewById(R.id.master_ip)).setText(Util.getLocalIp(this));
 
         findViewById(R.id.start_btn).setOnClickListener(this);

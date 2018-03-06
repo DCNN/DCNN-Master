@@ -1,11 +1,11 @@
 package cn.alexchao.dcnn_master;
 
+import android.util.JsonReader;
 import android.util.Log;
 
 import org.java_websocket.WebSocket;
 import org.java_websocket.handshake.ClientHandshake;
 import org.java_websocket.server.WebSocketServer;
-import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
@@ -13,28 +13,101 @@ import java.net.InetSocketAddress;
 import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
 import java.util.HashMap;
+import java.util.HashSet;
 
 public class WSServer extends WebSocketServer {
+    public static String MASTER_IP = null;
     private static final String TAG = "WSServer";
-    private static final String MASTER_IP = "localhost";
+
+    // store the master's connection
+    private WebSocket mMasterWS;
+
+    // store the list of workers
     private HashMap<String, WebSocket> mWorkerList;
+    private HashSet<String> mWorkerSet;
 
     public WSServer(int port) throws UnknownHostException {
         super(new InetSocketAddress(port));
         this.mWorkerList = new HashMap<>();
+        this.mWorkerSet = new HashSet<>();
         Log.d(TAG, "WS Server is running");
     }
 
+    private void addMaster(WebSocket conn) {
+        if (conn != null) {
+            this.mMasterWS = conn;
+        }
+    }
+
+    private void addWorker(String ipAddr, WebSocket conn) {
+        if (conn != null) {
+            this.mWorkerList.put(ipAddr, conn);
+            this.mWorkerSet.add(ipAddr);
+        }
+    }
+
+    public int getConnectedWorkerNum() {
+        return this.mWorkerList.size();
+    }
+
+    // router
+    private void route(WebSocket conn, String jsonStr) {
+        String sourceIP = conn.getRemoteSocketAddress().getAddress().getHostAddress();
+        if (sourceIP.equals(MASTER_IP)) {
+            // master - > workers
+            try {
+                JSONObject jsonObject = new JSONObject(jsonStr);
+                // func === send2node
+                if (jsonObject.getString("func").equals("calConv")) {
+                    JSONObject data = jsonObject.getJSONObject("data");
+                    String targetIP = data.getString("targetIP");
+                    this.handleSend2Node(targetIP, jsonStr);
+                }
+                // func === result
+                // ...
+            } catch (JSONException e) {
+                e.printStackTrace();
+            }
+        } else {
+            // worker -> master
+            if (this.mMasterWS != null) {
+                this.mMasterWS.send(jsonStr);
+            }
+        }
+//        if (sourceAddr.equals(MASTER_IP)) {
+//            // message from the master
+//            for (String aIp : this.mWorkerSet) {
+//                WebSocket aConn = this.mWorkerList.get(aIp);
+//                if (aConn != null) {
+//                    aConn.send(jsonStr);
+//                }
+//            }
+//        } else {
+//            // message from a worker
+//            this.mMasterWS.send(jsonStr);
+//        }
+    }
+
+    // handles
+    private void handleSend2Node(String targetIP, String jsonStr) {
+        WebSocket aConn = this.mWorkerList.get(targetIP);
+        if (aConn != null) {
+            aConn.send(jsonStr);
+        }
+    }
+
+    // ----------- handle ws request ------------
     // invoked when a new client connect to the server
     @Override
     public void onOpen(WebSocket conn, ClientHandshake handshake) {
         String sourceAddr = conn.getRemoteSocketAddress().getAddress().getHostAddress();
-        if (MASTER_IP == sourceAddr) {
+        if (MASTER_IP.equals(sourceAddr)) {
             Log.d(TAG, "Welcome, Master");
+            this.addMaster(conn);
         } else {
             Log.d(TAG, sourceAddr + " has connected to this server");
+            this.addWorker(sourceAddr, conn);
         }
-        this.mWorkerList.put(sourceAddr, conn);
     }
 
     // invoked when a connected client disconnect from the server
@@ -48,26 +121,8 @@ public class WSServer extends WebSocketServer {
     // invoked when a new message(string) comes
     @Override
     public void onMessage(WebSocket conn, String message) {
-        String sourceAddr = conn.getRemoteSocketAddress().getAddress().getHostAddress();
-        Log.d(TAG, sourceAddr + " sent a message");
-        // receiving JSON
-        JSONObject jsonObject;
-        try {
-            jsonObject = new JSONObject(message);
-            switch (jsonObject.getString("op")) {
-                case "sendModel":
-                    handleRecModel(conn, jsonObject.getJSONObject("data"));
-                    break;
-//                case "sendInputTensor":
-//                    handleRecInputTensor(conn, jsonObject.getJSONArray("data"));
-//                    break;
-                default:
-                    handleRecNoMatch(conn);
-                    break;
-            }
-        } catch (JSONException e) {
-            e.printStackTrace();
-        }
+        // forwarding JSON
+        this.route(conn, message);
     }
 
     // invoked when a new message(byte buffer) comes
@@ -84,50 +139,5 @@ public class WSServer extends WebSocketServer {
     @Override
     public void onStart() {
         Log.d("WSServer", "Server started!");
-    }
-
-    /**
-     * @param conn: WebSocket Connection
-     * @param model: JSON Object
-     * {
-     *   conv1BiasesInfo: [conv1Biases: JSONArray, size: JSONArray],
-     *   conv1WeightsInfo: [conv1Biases: JSONArray, size: JSONArray],
-     *   conv2BiasesInfo: [conv1Biases: JSONArray, size: JSONArray],
-     *   conv2WeightsInfo: [conv1Biases: JSONArray, size: JSONArray]
-     * }
-     * @throws JSONException: JSONException
-     */
-    private void handleRecModel(WebSocket conn, JSONObject model) throws JSONException {
-        double res = model.getJSONArray("conv1WeightsInfo").getJSONArray(1).getDouble(1);
-
-        JSONObject sendJsonObject = new JSONObject();
-        try {
-            sendJsonObject.put("data", res);
-        } catch (JSONException e) {
-            e.printStackTrace();
-        }
-        conn.send(sendJsonObject.toString());
-    }
-
-    private void handleRecInputTensor(WebSocket conn, JSONArray tensor1D) {
-        int len = tensor1D.length();
-
-        JSONObject sendJsonObject = new JSONObject();
-        try {
-            sendJsonObject.put("data", len);
-        } catch (JSONException e) {
-            e.printStackTrace();
-        }
-        conn.send(sendJsonObject.toString());
-    }
-
-    private void handleRecNoMatch(WebSocket conn) {
-        JSONObject sendJsonObject = new JSONObject();
-        try {
-            sendJsonObject.put("data", "Err: Op No Match");
-        } catch (JSONException e) {
-            e.printStackTrace();
-        }
-        conn.send(sendJsonObject.toString());
     }
 }
